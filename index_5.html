@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<!-- スマホ対応(レスポンシブ)のためのおまじない -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>店長のご機嫌波情報 SURF REPORT</title>
+
+<style>
+  /* ============================================
+     ① 基本設定
+     ============================================ */
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body{
+    margin:0;
+    font-family:"Hiragino Kaku Gothic ProN","BIZ UDGothic","Yu Gothic",sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:16px;
+    color:#233044;
+    transition:background 1s ease;
+  }
+
+  /* --- 状態ごとに body の背景(空の色)が変わる --- */
+  body.state-flat { background:linear-gradient(180deg,#fdf3e3 0%,#d9f0ec 100%); }
+  body.state-good { background:linear-gradient(180deg,#dff2ff 0%,#a9dcf5 100%); }
+  body.state-close{ background:linear-gradient(180deg,#46516b 0%,#66718c 100%); }
+
+  /* クローズアウトの時は外側の文字を白っぽくして読みやすく */
+  body.state-close .sky-text{ color:#eef2fa; }
+
+  .app{ width:100%; max-width:440px; margin:auto; }
+
+  /* ============================================
+     ② ヘッダー(波情報サイト風)
+     ============================================ */
+  header{ text-align:center; padding:6px 0 14px; transition:color .8s; }
+  header .en{
+    font-size:11px; letter-spacing:.5em; font-weight:bold;
+    text-transform:uppercase; opacity:.7;
+  }
+  header h1{ margin:4px 0 2px; font-size:22px; letter-spacing:.06em; }
+  header .date{ font-size:12px; opacity:.75; }
+
+  /* ============================================
+     ③ レポートカード
+     ============================================ */
+  .card{
+    background:rgba(255,255,255,.94);
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 12px 30px rgba(35,48,68,.18);
+  }
+
+  /* --- 海のエリア(波のグラフィック) --- */
+  .ocean{
+    position:relative;
+    height:190px;
+    overflow:hidden;
+    transition:background 1s ease;
+  }
+  body.state-flat .ocean{ background:linear-gradient(180deg,#fdf3e3 0%,#bfe6e0 100%); }
+  body.state-good .ocean{ background:linear-gradient(180deg,#cdeeff 0%,#7fc8ee 100%); }
+  body.state-close .ocean{ background:linear-gradient(180deg,#5c6880 0%,#3d4a63 100%); }
+
+  /* 波は2枚重ね。SVGをCSS背景として繰り返し、横に流して動かします */
+  .wave{
+    position:absolute; left:0; right:0; bottom:0;
+    height:80px;
+    background-repeat:repeat-x;
+    background-size:240px 80px;
+    transition:opacity 1s;
+  }
+  @keyframes drift  { from{ background-position-x:0; } to{ background-position-x:-240px; } }
+  @keyframes drift2 { from{ background-position-x:-240px; } to{ background-position-x:0; } }
+
+  /* --- フラット(凪):低くゆるやかな波・ゆっくり --- */
+  body.state-flat .wave.back{
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 52 Q30 47 60 52 T120 52 T180 52 T240 52 V80 H0 Z' fill='%2394d6cd' opacity='0.7'/></svg>");
+    animation:drift2 14s linear infinite;
+  }
+  body.state-flat .wave.front{
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 60 Q30 56 60 60 T120 60 T180 60 T240 60 V80 H0 Z' fill='%235bbdb2'/></svg>");
+    animation:drift 11s linear infinite;
+  }
+
+  /* --- グッドウェーブ:きれいなうねり・気持ちいい速さ --- */
+  body.state-good .wave.back{
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 42 Q30 18 60 42 T120 42 T180 42 T240 42 V80 H0 Z' fill='%235fb2e6' opacity='0.7'/></svg>");
+    animation:drift2 7s linear infinite;
+  }
+  body.state-good .wave.front{
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 50 Q30 30 60 50 T120 50 T180 50 T240 50 V80 H0 Z' fill='%232f8ed6'/></svg>");
+    animation:drift 5s linear infinite;
+  }
+
+  /* --- クローズアウト:ギザギザの荒波・速い --- */
+  body.state-close .wave.back{
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 38 L20 12 L40 40 L60 8 L80 36 L100 14 L120 42 L140 10 L160 38 L180 8 L200 40 L220 14 L240 38 V80 H0 Z' fill='%236f7ea0' opacity='0.8'/></svg>");
+    animation:drift2 3s linear infinite;
+  }
+  body.state-close .wave.front{
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 46 L20 20 L40 48 L60 16 L80 44 L100 22 L120 50 L140 18 L160 46 L180 16 L200 48 L220 22 L240 46 V80 H0 Z' fill='%23434f6e'/></svg>");
+    animation:drift 2.2s linear infinite;
+  }
+
+  /* --- 店長アイコン(波の上に浮かぶ) --- */
+  .tencho{
+    position:absolute;
+    left:50%; top:38px;
+    width:74px; height:74px;
+    margin-left:-37px;
+    border-radius:50%;
+    background:#fff;
+    border:3px solid rgba(255,255,255,.9);
+    box-shadow:0 6px 14px rgba(35,48,68,.25);
+    overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    font-size:40px;
+    z-index:2;
+  }
+  .tencho img{ width:100%; height:100%; object-fit:cover; }
+
+  /* 状態ごとの浮かび方:凪=ゆったり / 絶好調=ノリノリ / 荒れ=大揺れ */
+  @keyframes bob   { 0%,100%{ transform:translateY(0) rotate(0); } 50%{ transform:translateY(-6px) rotate(2deg); } }
+  @keyframes ride  { 0%,100%{ transform:translateY(0) rotate(-6deg);} 50%{ transform:translateY(-12px) rotate(6deg);} }
+  @keyframes shake { 0%,100%{ transform:translate(0,0) rotate(0);} 20%{ transform:translate(-5px,3px) rotate(-8deg);} 40%{ transform:translate(4px,-6px) rotate(6deg);} 60%{ transform:translate(-4px,2px) rotate(-6deg);} 80%{ transform:translate(5px,-3px) rotate(8deg);} }
+  body.state-flat  .tencho{ animation:bob 4s ease-in-out infinite; }
+  body.state-good  .tencho{ animation:ride 2.4s ease-in-out infinite; }
+  body.state-close .tencho{ animation:shake .7s linear infinite; }
+
+  /* ============================================
+     ④ コンディション判定バッジ + ご機嫌波高メーター
+     ============================================ */
+  .report{ padding:18px 18px 6px; text-align:center; }
+
+  /* 状態の色 + アイコン + 文字ラベルの3点セットで表す(色だけに頼らない) */
+  .badge{
+    display:inline-block;
+    font-weight:bold;
+    font-size:15px;
+    letter-spacing:.12em;
+    color:#fff;
+    padding:7px 22px;
+    border-radius:999px;
+    transition:background .5s;
+  }
+  body.state-flat  .badge{ background:#3aa79b; }
+  body.state-good  .badge{ background:#1f7fd0; }
+  body.state-close .badge{ background:#d0483e; }
+
+  .meter-wrap{ margin:16px 4px 4px; text-align:left; }
+  .meter-label{
+    display:flex; justify-content:space-between;
+    font-size:12px; font-weight:bold; color:#5a6a80;
+    margin-bottom:5px;
+  }
+  .meter{
+    height:14px;
+    background:#e8edf3;
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .meter-fill{
+    height:100%;
+    width:0;
+    border-radius:999px;
+    transition:width .9s cubic-bezier(.3,1.3,.5,1), background .5s;
+  }
+  body.state-flat  .meter-fill{ background:linear-gradient(90deg,#7ed0c6,#3aa79b); }
+  body.state-good  .meter-fill{ background:linear-gradient(90deg,#6fc0ef,#1f7fd0); }
+  body.state-close .meter-fill{ background:linear-gradient(90deg,#f0a05a,#d0483e); }
+
+  /* ============================================
+     ⑤ 波情報ステータス(4つのミニ表示)
+     ============================================ */
+  .stats{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    padding:12px 18px 4px;
+  }
+  .stat{
+    background:#f4f7fa;
+    border-radius:12px;
+    padding:10px 8px;
+    text-align:center;
+  }
+  .stat .k{ font-size:11px; color:#7a8aa0; letter-spacing:.05em; }
+  .stat .v{ font-size:14px; font-weight:bold; margin-top:3px; line-height:1.4; }
+
+  /* ============================================
+     ⑥ 本日の波の解説(クスッと笑える文)
+     ============================================ */
+  .caption{
+    padding:12px 24px 20px;
+    font-size:13.5px;
+    line-height:2.0;
+    text-align:left;
+    min-height:7em;
+  }
+  .caption b{ color:#1f7fd0; }
+  body.state-close .caption b{ color:#d0483e; }
+
+  /* ============================================
+     ⑦ 切り替えボタン
+     ============================================ */
+  .buttons{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+    margin-top:16px;
+  }
+  .btn{
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:bold;
+    line-height:1.5;
+    color:#233044;
+    background:rgba(255,255,255,.92);
+    border:2px solid transparent;
+    border-radius:14px;
+    padding:12px 4px;
+    cursor:pointer;
+    transition:.15s;
+    box-shadow:0 4px 10px rgba(35,48,68,.12);
+  }
+  .btn:active{ transform:translateY(2px); box-shadow:none; }
+  .btn .icon{ display:block; font-size:22px; margin-bottom:3px; }
+  .btn.active{ border-color:#233044; }
+  body.state-close .btn.active{ border-color:#fff; }
+
+  footer{
+    text-align:center;
+    font-size:11px;
+    margin-top:18px;
+    line-height:1.8;
+    opacity:.75;
+    transition:color .8s;
+  }
+</style>
+</head>
+
+<!-- 初期状態は「フラット(凪)」 -->
+<body class="state-flat">
+
+<div class="app">
+
+  <header class="sky-text">
+    <div class="en">Tencho Surf Report</div>
+    <h1>店長のご機嫌波情報</h1>
+    <div class="date" id="today"></div>
+  </header>
+
+  <div class="card">
+
+    <!-- 波のグラフィック。店長アイコンが波の上に浮かびます -->
+    <div class="ocean">
+      <div class="wave back"></div>
+      <div class="wave front"></div>
+      <div class="tencho" id="tencho"></div>
+    </div>
+
+    <!-- 判定バッジとメーター -->
+    <div class="report">
+      <span class="badge" id="badge"></span>
+      <div class="meter-wrap">
+        <div class="meter-label">
+          <span>ご機嫌波高メーター</span><span id="meterValue"></span>
+        </div>
+        <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+      </div>
+    </div>
+
+    <!-- 波情報ステータス -->
+    <div class="stats">
+      <div class="stat"><div class="k">風</div>          <div class="v" id="stWind"></div></div>
+      <div class="stat"><div class="k">おにぎり在庫</div><div class="v" id="stOnigiri"></div></div>
+      <div class="stat"><div class="k">店内混雑</div>    <div class="v" id="stCrowd"></div></div>
+      <div class="stat"><div class="k">接近おすすめ度</div><div class="v" id="stStar"></div></div>
+    </div>
+
+    <!-- 本日の波の解説 -->
+    <p class="caption" id="caption"></p>
+
+  </div>
+
+  <!-- 切り替えボタン -->
+  <div class="buttons">
+    <button class="btn" data-state="flat"  onclick="changeState('flat', this)"><span class="icon">🍙</span>フラット<br>(凪)</button>
+    <button class="btn" data-state="good"  onclick="changeState('good', this)"><span class="icon">🏄</span>グッド<br>ウェーブ</button>
+    <button class="btn" data-state="close" onclick="changeState('close', this)"><span class="icon">🌀</span>クローズ<br>アウト</button>
+  </div>
+
+  <footer class="sky-text">
+    ※本情報は目視観測によるものです。実際の海況(店長)と異なる場合があります。<br>
+    お世話になった店長へ、感謝を込めて。
+  </footer>
+
+</div>
+
+<script>
+/* ============================================
+   ⑧ 波情報データ:文言を直したい時はここだけ触ればOK!
+   ============================================ */
+const states = {
+  flat: {
+    badge  : "🍙 コンディション:ベタ凪",
+    height : "0.2m",
+    meter  : "14%",
+    emoji  : "😌",
+    wind   : "オフショア(そよ風)",
+    onigiri: "潤沢(補給中)",
+    crowd  : "まばら",
+    star   : "★★★★★<br><small>相談ごとは今日</small>",
+    text   : "波高0.2m、海面は鏡のような<b>ベタ凪</b>。店長はデスクでおにぎりを補給中である。どんな相談もスッと通る絶好のコンディション。シフトの希望、有給の申請、狙うなら今日しかない。"
+  },
+  good: {
+    badge  : "🏄 コンディション:絶好調",
+    height : "1.8m",
+    meter  : "58%",
+    emoji  : "🤙",
+    wind   : "オフショア(面ツル)",
+    onigiri: "補給済み",
+    crowd  : "ほどよい客入り",
+    star   : "★★★★☆<br><small>多少の無茶もOK</small>",
+    text   : "波高1.8m、面ツルの<b>グッドウェーブ</b>。仕事はサクサク、指示は的確、店長は完全に波に乗っている。多少の無茶ぶりもロングライド級の笑顔で乗りこなす。乗るしかない、このビッグウェーブに。"
+  },
+  close: {
+    badge  : "🌀 コンディション:遊泳禁止",
+    height : "4.5m〜",
+    meter  : "97%",
+    emoji  : "😤",
+    wind   : "オンショア(暴風)",
+    onigiri: "⚠ 在庫切れ(重要)",
+    crowd  : "昼ピーク+団体様",
+    star   : "☆☆☆☆☆<br><small>本日は見学推奨</small>",
+    text   : "波高4.5m超、<b>クローズアウト</b>。キャパシティの許容量を超え、全方位で波が一斉に崩壊している。ベテランでも沖に出てはいけない。用件は波が落ち着いてから。どうしても近づく場合は、おにぎりを供えて速やかに退避せよ。"
+  }
+};
+
+/* ============================================
+   ⑨ 状態の切り替え処理
+   ============================================ */
+function changeState(key, btn){
+  const s = states[key];
+
+  /* body のクラスを付け替えると、CSS側で背景・波・アニメが一斉に切り替わる */
+  document.body.className = "state-" + key;
+
+  /* 文字情報の差し替え */
+  document.getElementById("badge").textContent      = s.badge;
+  document.getElementById("meterValue").textContent = "波高 " + s.height;
+  document.getElementById("meterFill").style.width  = s.meter;
+  document.getElementById("stWind").textContent     = s.wind;
+  document.getElementById("stOnigiri").textContent  = s.onigiri;
+  document.getElementById("stCrowd").textContent    = s.crowd;
+  document.getElementById("stStar").innerHTML       = s.star;
+  document.getElementById("caption").innerHTML      = s.text;
+
+  /* 店長アイコン:images/tencho.png があれば顔写真、無ければ絵文字 */
+  const tencho = document.getElementById("tencho");
+  tencho.innerHTML = "";
+  const img = new Image();
+  img.src = "images/tencho.png";
+  img.alt = "店長";
+  img.onerror = function(){ tencho.textContent = s.emoji; };
+  tencho.appendChild(img);
+
+  /* 選択中のボタンに枠を付ける */
+  document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+}
+
+/* ============================================
+   ⑩ 今日の日付を「波情報サイト風」に表示
+   ============================================ */
+const now = new Date();
+const week = ["日","月","火","水","木","金","土"];
+document.getElementById("today").textContent =
+  now.getFullYear() + "年" + (now.getMonth()+1) + "月" + now.getDate() + "日(" +
+  week[now.getDay()] + ") 発表";
+
+/* 最初はフラット(凪)からスタート */
+changeState("flat", document.querySelector('[data-state="flat"]'));
+</script>
+
+</body>
+</html>
